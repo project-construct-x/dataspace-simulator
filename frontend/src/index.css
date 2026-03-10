@@ -1,0 +1,234 @@
+html {
+  overflow-x: hidden;
+}
+
+:root {
+  --bg-color: #0f172a;
+  --text-color: #e2e8f0;
+  --card-bg: #1e293b;
+  --card-border: #334155;
+
+  --consumer-color: #3b82f6;
+  /* Blue */
+  --consumer-bg: rgba(59, 130, 246, 0.1);
+
+  --provider-color: #ec4899;
+  /* Pink/Magenta */
+  --provider-bg: rgba(236, 72, 153, 0.1);
+
+  --dataspace-color: #8b5cf6;
+  /* Purple */
+
+  --success: #10b981;
+  --error: #ef4444;
+}
+
+body {
+  margin: 0;
+  font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+.header {
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  background: linear-gradient(to right, var(--consumer-color), var(--provider-color));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Centered Layout Overrides */
+.main-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: calc(100vh - 80px);
+  /* Subtract header height */
+  position: relative;
+  background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+  overflow: hidden;
+}
+
+/* Central Hub */
+.dataspace-hub {
+  position: relative;
+  width: 500px;
+  height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  background: radial-gradient(circle, rgba(15, 23, 42, 0.8) 0%, rgba(15, 23, 42, 0) 70%);
+  border-radius: 50%;
+}
+
+.hub-border {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 4px dashed rgba(139, 92, 246, 0.3);
+  border-radius: 50%;
+  animation: rotate 120s linear infinite;
+}
+
+.hub-label {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: var(--dataspace-color);
+  text-shadow: 0 0 30px rgba(139, 92, 246, 0.6);
+  z-index: 2;
+  text-transform: uppercase;
+}
+
+/* Nodes hanging off the hub */
+.node-container {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  z-index: 20;
+}
+
+.node-container.consumer {
+  right: 95%;
+  /* Docked to the left side */
+  margin-right: -2px;
+}
+
+.node-container.provider {
+  left: 95%;
+  /* Docked to the right side */
+  margin-left: -2px;
+}
+
+.connector-node {
+  background: #0f172a;
+  border: 2px solid #334155;
+  border-radius: 1rem;
+  /* Slightly rounded blocks */
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 180px;
+  min-height: 200px;
+  justify-content: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  position: relative;
+}
+
+/* Connector "Ports" facing the hub */
+.connector-node::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 60px;
+  background: #334155;
+  border: 1px solid #475569;
+}
+
+.node-container.consumer .connector-node::after {
+  right: -20px;
+  border-radius: 0 4px 4px 0;
+}
+
+.node-container.provider .connector-node::after {
+  left: -20px;
+  border-radius: 4px 0 0 4px;
+}
+
+.connector-line {
+  display: none;
+  /* Removed linear lines */
+}
+
+/* Floating Panels */
+.floating-panel {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 280px;
+  max-height: 80vh;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 1rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  z-index: 5;
+}
+
+.floating-panel:hover {
+  background: rgba(15, 23, 42, 0.95);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  z-index: 30;
+}
+
+.floating-panel.left {
+  left: 2rem;
+}
+
+.floating-panel.right {
+  right: 2rem;
+}
+
+/* Animation Elements */
+.data-packet {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 15px #10b981;
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* Logs Overlay */
+.logs-overlay {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  max-width: 90vw;
+  background: rgba(2, 6, 23, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  max-height: 150px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.8rem;
+  z-index: 50;
+  backdrop-filter: blur(5px);
+}

@@ -1,0 +1,112 @@
+.confirm-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.confirm-modal-content {
+    background: #ffffff;
+    border: 2px solid #e2e8f0;
+    border-radius: 1rem;
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease-out;
+    overflow: hidden;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.confirm-modal-header {
+    padding: 1.5rem 2rem 1rem;
+}
+
+.confirm-modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #1f2937;
+    font-weight: 700;
+}
+
+.confirm-modal-body {
+    padding: 0 2rem 1.5rem;
+}
+
+.confirm-modal-body p {
+    color: #6b7280;
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+.confirm-modal-actions {
+    display: flex;
+    gap: 0;
+    border-top: 1px solid #e2e8f0;
+}
+
+.confirm-modal-actions button {
+    flex: 1;
+    padding: 1rem;
+    border: none;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+}
+
+.confirm-modal-actions .cancel-btn {
+    color: #6b7280;
+    border-right: 1px solid #e2e8f0;
+}
+
+.confirm-modal-actions .cancel-btn:hover {
+    background: #f8fafc;
+    color: #374151;
+}
+
+.confirm-modal-actions .confirm-btn {
+    color: #2563eb;
+}
+
+.confirm-modal-actions .confirm-btn:hover {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.confirm-modal-actions .confirm-btn.danger {
+    color: #ef4444;
+}
+
+.confirm-modal-actions .confirm-btn.danger:hover {
+    background: #fef2f2;
+    color: #dc2626;
+}

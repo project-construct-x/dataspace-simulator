@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  sim-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "4000:3000"
+    depends_on:
+      - sim-backend
+    networks:
+      - simulator-network
+    restart: unless-stopped
+
+  sim-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "4001:3001"
+    environment:
+      - PORT=3001
+      - FUSEKI_URL=http://sim-fuseki:3030
+      - FUSEKI_DATASET=${FUSEKI_DATASET:-simulator}
+      - FUSEKI_USERNAME=${FUSEKI_USERNAME:-admin}
+      - FUSEKI_PASSWORD=${FUSEKI_PASSWORD:-admin}
+      - DB_PATH=/data/simulator.db
+      - AUTO_ACCEPT_NEGOTIATIONS=${AUTO_ACCEPT_NEGOTIATIONS:-true}
+      - HEARTBEAT_TIMEOUT_MS=${HEARTBEAT_TIMEOUT_MS:-120000}
+    volumes:
+      - backend-data:/data
+    depends_on:
+      - sim-fuseki
+    networks:
+      - simulator-network
+    restart: unless-stopped
+
+  sim-fuseki:
+    image: stain/jena-fuseki:latest
+    ports:
+      - "4030:3030"
+    environment:
+      - ADMIN_PASSWORD=${FUSEKI_ADMIN_PASSWORD:-admin}
+      - FUSEKI_DATASET_1=${FUSEKI_DATASET:-simulator}
+    volumes:
+      - fuseki-data:/fuseki
+    networks:
+      - simulator-network
+    restart: unless-stopped
+
+networks:
+  simulator-network:
+    driver: bridge
+
+volumes:
+  backend-data:
+  fuseki-data:

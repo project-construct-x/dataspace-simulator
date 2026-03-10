@@ -41,7 +41,7 @@ To run this project, execute the following steps:
 1. Clone this repository
 
    ```sh
-   git clone https://github.com/project-construct-x/<your-repo>.git
+   git clone https://github.com/project-construct-x/dataspace-simulator.git
    ```
 
 2. Open the project directory

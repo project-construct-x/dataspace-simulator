@@ -124,6 +124,16 @@ const _insertAsset = db.prepare(`
 const _getAsset = db.prepare(`SELECT * FROM assets WHERE asset_id = ?`);
 const _getAssetsByNode = db.prepare(`SELECT * FROM assets WHERE owner_node_id = ? ORDER BY published_at DESC`);
 const _getAllAssets = db.prepare(`SELECT * FROM assets ORDER BY published_at DESC`);
+const _updateAsset = db.prepare(`
+  UPDATE assets
+  SET name = @name,
+      description = @description,
+      asset_content = @asset_content,
+      file_name = @file_name,
+      policy_id = @policy_id,
+      dcat_fields = @dcat_fields
+  WHERE asset_id = @asset_id
+`);
 const _deleteAsset = db.prepare(`DELETE FROM assets WHERE asset_id = ?`);
 const _deleteAssetsByNode = db.prepare(`DELETE FROM assets WHERE owner_node_id = ?`);
 
@@ -222,6 +232,7 @@ module.exports = {
   getAsset: (id) => enrichAsset(_getAsset.get(id)),
   getAssetsByNode: (nodeId) => _getAssetsByNode.all(nodeId).map(enrichAsset),
   getAllAssets: () => _getAllAssets.all().map(enrichAsset),
+  updateAsset: (a) => _updateAsset.run({ ...a, dcat_fields: JSON.stringify(a.dcat_fields || {}) }),
   deleteAsset: (id) => _deleteAsset.run(id),
   deleteAssetsByNode: (nodeId) => _deleteAssetsByNode.run(nodeId),
 

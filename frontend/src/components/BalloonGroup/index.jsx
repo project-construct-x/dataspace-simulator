@@ -32,6 +32,7 @@ const BalloonGroup = ({
     assets = [],
     onDeleteAsset = () => { },
     onAddAsset = () => { },
+    onEditAsset = () => { },
     allNodeAssets = {},
     onAction,
     isDemo = true,
@@ -119,6 +120,8 @@ const BalloonGroup = ({
     return (
         <Motion.div
             className="schematic-balloon-group"
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             style={{
                 position: 'absolute',
                 x: balloonX,
@@ -235,6 +238,7 @@ const BalloonGroup = ({
                                 isConnected={isConnected}
                                 onPublish={() => onAction('publish_asset', null, currentNodeId)}
                                 onDeleteAsset={onDeleteAsset}
+                                onEditAsset={(assetId, payload) => onEditAsset(assetId, payload, currentNodeId)}
                                 isDemo={isDemo}
                                 minimalView={minimalView}
                             />

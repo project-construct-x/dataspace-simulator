@@ -210,6 +210,9 @@ const MacroView = forwardRef(({
                         name: a.name,
                         description: a.description,
                         content: a.content,
+                        fileName: a.fileName,
+                        policyId: a.policyId,
+                        dcatFields: a.dcatFields || {},
                         ownerNodeId: id,
                         policy: a.policyId,
                         type: a.policyId || 'open',
@@ -243,6 +246,38 @@ const MacroView = forwardRef(({
             ...prev,
             [nodeId]: (prev[nodeId] || []).filter(a => a.id !== assetId && a['@id'] !== assetId)
         }));
+    };
+
+    const handleEditAsset = async (assetId, payload, nodeId) => {
+        try {
+            const res = await fetch(`/api/assets/${assetId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ asset: payload }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data?.error || 'Update failed');
+
+            const updated = data?.asset;
+            if (!updated) return;
+
+            setNodeAssets(prev => ({
+                ...prev,
+                [nodeId]: (prev[nodeId] || []).map(a => a.id === assetId ? {
+                    ...a,
+                    name: updated.name,
+                    description: updated.description,
+                    content: updated.content,
+                    fileName: updated.fileName,
+                    policyId: updated.policyId,
+                    dcatFields: updated.dcatFields || {},
+                    policy: updated.policyId || 'open',
+                    type: updated.policyId || 'open',
+                } : a)
+            }));
+        } catch (err) {
+            console.error('[MacroView] Edit asset failed:', err.message || err);
+        }
     };
 
     // Delete Handler
@@ -533,6 +568,7 @@ const MacroView = forwardRef(({
                             assets={nodeAssets[id] || []}
                             onDeleteAsset={(assetId) => handleDeleteAsset(id, assetId)}
                             onAddAsset={(asset) => handleAddAsset(id, asset)}
+                            onEditAsset={(assetId, payload, currentNodeId) => handleEditAsset(assetId, payload, currentNodeId || id)}
                             allNodeAssets={nodeAssets}
                             isDemo={isDemo}
                             isNewlyAdded={Boolean(appearingHostedNodeIds[id])}

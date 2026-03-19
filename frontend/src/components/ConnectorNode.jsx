@@ -68,6 +68,7 @@ const ConnectorNode = ({
     assets = [],
     onDeleteAsset = () => { },
     onAddAsset = () => { },
+    onEditAsset = () => { },
     allNodeAssets = {},
     // Demo vs hosted mode
     isDemo = true,
@@ -208,6 +209,7 @@ const ConnectorNode = ({
                 assets={assets}
                 onDeleteAsset={onDeleteAsset}
                 onAddAsset={onAddAsset}
+                onEditAsset={onEditAsset}
                 allNodeAssets={allNodeAssets}
                 isDemo={isDemo}
                 minimalView={minimalView}

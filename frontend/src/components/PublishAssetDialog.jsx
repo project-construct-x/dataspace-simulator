@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import {
     X, Upload, FileJson, FileText, CheckCircle, AlertCircle,
     Globe, Users, Factory, Briefcase, Plus, XCircle, Info
@@ -79,7 +80,15 @@ function ChipSelect({ options, selected, onChange, color }) {
 
 
 /* ── main dialog ────────────────────────────────────────────────── */
-export default function PublishAssetDialog({ isOpen, onClose, onPublish, participantName }) {
+export default function PublishAssetDialog({
+    isOpen,
+    onClose,
+    onPublish,
+    participantName,
+    mode = 'create',
+    initialAsset = null,
+    onSaveAsset,
+}) {
     const [file, setFile] = useState(null);
     const [dragging, setDragging] = useState(false);
     const fileRef = useRef();
@@ -112,11 +121,42 @@ export default function PublishAssetDialog({ isOpen, onClose, onPublish, partici
 
     useEffect(() => {
         if (!isOpen) return;
-        setFile(null); setTitle(''); setDescription('');
-        setSelectedPolicy('sys-open'); setSelectedValues([]);
-        setDcatFields([]); setDcatDropdown('');
+        if (mode === 'edit' && initialAsset) {
+            setFile({
+                name: initialAsset.fileName || 'existing-asset.json',
+                size: String(initialAsset.content || '').length,
+                type: 'text/plain',
+                text: async () => String(initialAsset.content || ''),
+            });
+            setTitle(initialAsset.name || '');
+            setDescription(initialAsset.description || initialAsset?.dcatFields?.description || '');
+            setSelectedPolicy(initialAsset.policyId || 'sys-open');
+            setSelectedValues([]);
+            setDcatFields(hydrateDcatFields(initialAsset.dcatFields || {}));
+            setDcatDropdown('');
+        } else {
+            setFile(null); setTitle(''); setDescription('');
+            setSelectedPolicy('sys-open'); setSelectedValues([]);
+            setDcatFields([]); setDcatDropdown('');
+        }
         setError(null); setDone(false); setPublishing(false);
-    }, [isOpen]);
+    }, [isOpen, mode, initialAsset]);
+
+    useEffect(() => {
+        if (!isOpen || mode !== 'edit') return;
+        const policyId = initialAsset?.policyId;
+        if (!policyId || policyId === 'sys-open') {
+            setSelectedValues([]);
+            return;
+        }
+        fetch(`${API_BASE}/policies/${encodeURIComponent(policyId)}`)
+            .then(r => (r.ok ? r.json() : null))
+            .then(pol => {
+                const value = pol?.constraints?.[0]?.value || '';
+                setSelectedValues(String(value).split(',').map(s => s.trim()).filter(Boolean));
+            })
+            .catch(() => setSelectedValues([]));
+    }, [isOpen, mode, initialAsset?.policyId]);
 
     const pick = f => {
         const name = (f?.name || '').toLowerCase();
@@ -149,7 +189,7 @@ export default function PublishAssetDialog({ isOpen, onClose, onPublish, partici
     };
 
     const handlePublish = async () => {
-        if (!file) return setError('Please select a JSON, CSV or TXT file.');
+        if (mode !== 'edit' && !file) return setError('Please select a JSON, CSV or TXT file.');
         if (!title.trim()) return setError('Title is required.');
         const pol = POLICIES.find(p => p.id === selectedPolicy);
         if (pol?.constraint && selectedValues.length === 0) {
@@ -157,12 +197,25 @@ export default function PublishAssetDialog({ isOpen, onClose, onPublish, partici
         }
         setPublishing(true); setError(null);
         try {
-            const fileText = await file.text();
             let parsedContent = null;
-            try {
-                parsedContent = JSON.parse(fileText);
-            } catch {
-                parsedContent = fileText;
+            if (mode === 'edit') {
+                const existing = initialAsset?.content;
+                if (typeof existing === 'string') {
+                    try {
+                        parsedContent = JSON.parse(existing);
+                    } catch {
+                        parsedContent = existing;
+                    }
+                } else {
+                    parsedContent = existing ?? '';
+                }
+            } else {
+                const fileText = await file.text();
+                try {
+                    parsedContent = JSON.parse(fileText);
+                } catch {
+                    parsedContent = fileText;
+                }
             }
 
             let policyId = null;
@@ -179,16 +232,23 @@ export default function PublishAssetDialog({ isOpen, onClose, onPublish, partici
                     }),
                 });
             }
-            await onPublish({
-                name: title.trim(), fileName: file.name,
+            const payload = {
+                name: title.trim(),
+                fileName: mode === 'edit' ? (initialAsset?.fileName || '') : file.name,
                 content: parsedContent,
                 policyId,
                 dcatFields: buildDcatPayload(),
-            });
+            };
+
+            if (mode === 'edit') {
+                await onSaveAsset?.(payload);
+            } else {
+                await onPublish(payload);
+            }
             setDone(true);
             setTimeout(() => { setDone(false); onClose(); }, 1400);
         } catch (e) {
-            setError(e.message || 'Publish failed.');
+            setError(e.message || (mode === 'edit' ? 'Update failed.' : 'Publish failed.'));
         } finally {
             setPublishing(false);
         }
@@ -246,7 +306,7 @@ export default function PublishAssetDialog({ isOpen, onClose, onPublish, partici
         );
     };
 
-    return (
+    const modal = (
         <AnimatePresence>
             <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -256,12 +316,12 @@ export default function PublishAssetDialog({ isOpen, onClose, onPublish, partici
                 <motion.div
                     initial={{ y: 14, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 14, opacity: 0 }} transition={{ duration: 0.18 }}
                     onMouseDown={e => e.stopPropagation()}
-                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '14px', padding: '26px', width: '520px', maxHeight: '90vh', overflowY: 'auto', scrollbarGutter: 'stable', boxShadow: '0 25px 50px rgba(0,0,0,0.45)' }}
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '14px', padding: '26px', width: 'min(640px, 94vw)', maxHeight: '90vh', overflowY: 'auto', scrollbarGutter: 'stable', boxShadow: '0 25px 50px rgba(0,0,0,0.45)' }}
                 >
                     {/* Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                         <div>
-                            <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.05rem' }}>Publish Asset</div>
+                            <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.05rem' }}>{mode === 'edit' ? 'Edit Asset' : 'Publish Asset'}</div>
                             {participantName && <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '2px' }}>as {participantName}</div>}
                         </div>
                         <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={18} /></button>
@@ -269,21 +329,21 @@ export default function PublishAssetDialog({ isOpen, onClose, onPublish, partici
 
                     {done ? (
                         <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0', color: '#10b981' }}>
-                            <CheckCircle size={56} /><p style={{ margin: '12px 0 0', fontWeight: 600 }}>Published!</p>
+                            <CheckCircle size={56} /><p style={{ margin: '12px 0 0', fontWeight: 600 }}>{mode === 'edit' ? 'Saved!' : 'Published!'}</p>
                         </motion.div>
                     ) : (<>
 
                         {/* Drop Zone */}
                         <div
-                            onDragOver={e => { e.preventDefault(); setDragging(true); }}
-                            onDragLeave={() => setDragging(false)}
-                            onDrop={e => { e.preventDefault(); setDragging(false); pick(e.dataTransfer.files[0]); }}
-                            onClick={() => fileRef.current?.click()}
-                            style={{ border: `2px dashed ${dragging ? '#3b82f6' : file ? '#10b981' : 'var(--border-subtle)'}`, borderRadius: '10px', padding: '18px', textAlign: 'center', cursor: 'pointer', background: dragging ? 'rgba(59,130,246,0.06)' : file ? 'rgba(16,185,129,0.06)' : 'transparent', transition: 'all 0.15s', marginBottom: '18px' }}
+                            onDragOver={mode === 'edit' ? undefined : (e => { e.preventDefault(); setDragging(true); })}
+                            onDragLeave={mode === 'edit' ? undefined : (() => setDragging(false))}
+                            onDrop={mode === 'edit' ? undefined : (e => { e.preventDefault(); setDragging(false); pick(e.dataTransfer.files[0]); })}
+                            onClick={mode === 'edit' ? undefined : (() => fileRef.current?.click())}
+                            style={{ border: `2px dashed ${mode === 'edit' ? 'var(--border-subtle)' : (dragging ? '#3b82f6' : file ? '#10b981' : 'var(--border-subtle)')}`, borderRadius: '10px', padding: '18px', textAlign: 'center', cursor: mode === 'edit' ? 'default' : 'pointer', background: mode === 'edit' ? 'var(--bg-surface)' : (dragging ? 'rgba(59,130,246,0.06)' : file ? 'rgba(16,185,129,0.06)' : 'transparent'), transition: 'all 0.15s', marginBottom: '18px' }}
                         >
-                            <input ref={fileRef} type="file" accept=".json,.csv,.txt,application/json,text/csv,text/plain" onChange={e => pick(e.target.files[0])} style={{ display: 'none' }} />
+                            <input ref={fileRef} type="file" accept=".json,.csv,.txt,application/json,text/csv,text/plain" onChange={e => pick(e.target.files[0])} style={{ display: 'none' }} disabled={mode === 'edit'} />
                             {file
-                                ? <>{(file.name.toLowerCase().endsWith('.json') || file.type === 'application/json') ? <FileJson size={28} color="#10b981" /> : <FileText size={28} color="#10b981" />}<p style={{ margin: '6px 0 1px', fontWeight: 500, color: 'var(--text-secondary)', fontSize: '0.88rem' }}>{file.name}</p><p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.72rem' }}>{(file.size / 1024).toFixed(1)} KB</p></>
+                                ? <>{(file.name.toLowerCase().endsWith('.json') || file.type === 'application/json') ? <FileJson size={28} color="#10b981" /> : <FileText size={28} color="#10b981" />}<p style={{ margin: '6px 0 1px', fontWeight: 500, color: 'var(--text-secondary)', fontSize: '0.88rem' }}>{file.name}</p><p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.72rem' }}>{(file.size / 1024).toFixed(1)} KB{mode === 'edit' ? '  ·  File cannot be changed' : ''}</p></>
                                 : <><Upload size={26} color={dragging ? '#3b82f6' : 'var(--text-muted)'} /><p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Drop JSON, CSV or TXT or click to select</p></>
                             }
                         </div>
@@ -358,7 +418,11 @@ export default function PublishAssetDialog({ isOpen, onClose, onPublish, partici
                                         return (
                                             <div key={f.key}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                                    <label style={{ ...lbl, marginBottom: 0 }}>{opt?.label || f.key}</label>
+                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                        <label style={{ color: 'var(--text-primary)', fontSize: '0.8rem', fontWeight: 600, margin: 0 }}>
+                                                            {opt?.label || f.key}
+                                                        </label>
+                                                    </div>
                                                     <button type="button" onClick={() => setDcatFields(prev => prev.filter(x => x.key !== f.key))}
                                                         style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px' }}>
                                                         <XCircle size={13} />
@@ -413,9 +477,9 @@ export default function PublishAssetDialog({ isOpen, onClose, onPublish, partici
                         {/* Actions */}
                         <div style={{ display: 'flex', gap: '10px' }}>
                             <button type="button" onClick={onClose} style={{ flex: 1, padding: '11px', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: '8px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.88rem' }}>Cancel</button>
-                            <motion.button type="button" whileTap={{ scale: 0.97 }} onClick={handlePublish} disabled={!file || !title.trim() || publishing}
-                                style={{ flex: 2, padding: '11px', background: (!file || !title.trim() || publishing) ? 'var(--bg-surface)' : '#f97316', border: 'none', borderRadius: '8px', color: (!file || !title.trim() || publishing) ? 'var(--text-muted)' : '#fff', cursor: (!file || !title.trim() || publishing) ? 'not-allowed' : 'pointer', fontSize: '0.9rem', fontWeight: 700 }}>
-                                {publishing ? 'Publishing…' : 'Publish Asset'}
+                            <motion.button type="button" whileTap={{ scale: 0.97 }} onClick={handlePublish} disabled={((mode !== 'edit' && !file) || !title.trim() || publishing)}
+                                style={{ flex: 2, padding: '11px', background: (((mode !== 'edit' && !file) || !title.trim() || publishing)) ? 'var(--bg-surface)' : '#f97316', border: 'none', borderRadius: '8px', color: (((mode !== 'edit' && !file) || !title.trim() || publishing)) ? 'var(--text-muted)' : '#fff', cursor: (((mode !== 'edit' && !file) || !title.trim() || publishing)) ? 'not-allowed' : 'pointer', fontSize: '0.9rem', fontWeight: 700 }}>
+                                {publishing ? (mode === 'edit' ? 'Saving…' : 'Publishing…') : (mode === 'edit' ? 'Save Changes' : 'Publish Asset')}
                             </motion.button>
                         </div>
 
@@ -424,4 +488,19 @@ export default function PublishAssetDialog({ isOpen, onClose, onPublish, partici
             </motion.div>
         </AnimatePresence>
     );
+
+    if (typeof document === 'undefined') return null;
+    return createPortal(modal, document.body);
+}
+
+function hydrateDcatFields(dcat = {}) {
+    const rows = [];
+    if (Array.isArray(dcat.keywords) && dcat.keywords.length > 0) rows.push({ key: 'dcat:keyword', value: dcat.keywords.join(', ') });
+    if (Array.isArray(dcat.themes) && dcat.themes.length > 0) rows.push({ key: 'dcat:theme', value: dcat.themes.join(', ') });
+    if (Array.isArray(dcat.spatial) && dcat.spatial.length > 0) rows.push({ key: 'dct:spatial', value: dcat.spatial.join(', ') });
+    for (const entry of (Array.isArray(dcat.additionalDcat) ? dcat.additionalDcat : [])) {
+        if (!entry?.key) continue;
+        rows.push({ key: entry.key, value: String(entry.value || '') });
+    }
+    return rows;
 }

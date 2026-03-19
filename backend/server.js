@@ -270,6 +270,56 @@ app.delete('/api/assets/:id', async (req, res) => {
     res.json({ success: true });
 });
 
+app.put('/api/assets/:id', async (req, res) => {
+    const existing = db.getAsset(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Asset not found' });
+
+    const payload = req.body?.asset || {};
+    const name = String(payload.name || existing.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'asset.name required' });
+
+    const ownerNodeId = payload.ownerNodeId || existing.owner_node_id;
+    const ownerNode = db.getNode(ownerNodeId);
+    if (!ownerNode) return res.status(404).json({ error: 'Owner node not found' });
+
+    const updated = {
+        asset_id: existing.asset_id,
+        name,
+        description: String(payload.description ?? existing.description ?? '').trim(),
+        asset_content: typeof payload.content === 'string'
+            ? payload.content
+            : (payload.content != null ? JSON.stringify(payload.content) : String(existing.asset_content || '')),
+        file_name: String(payload.fileName ?? existing.file_name ?? '').trim(),
+        policy_id: payload.policyId === undefined ? (existing.policy_id || null) : (payload.policyId || null),
+        dcat_fields: payload.dcatFields || existing.dcat_fields || {},
+    };
+
+    db.updateAsset(updated);
+
+    try {
+        await upsertSemanticDataset({
+            datasetId: existing.asset_id,
+            title: updated.name,
+            description: updated.description,
+            keywords: normalizeList(updated.dcat_fields.keywords),
+            themes: normalizeList(updated.dcat_fields.themes),
+            spatial: normalizeList(updated.dcat_fields.spatial),
+            temporalCoverage: updated.dcat_fields.temporalCoverage || '',
+            additionalDcat: updated.dcat_fields.additionalDcat || [],
+            policyName: updated.policy_id || '',
+            publisherBpn: ownerNodeId,
+            publisherName: ownerNode.name,
+            sessionCode: 'local',
+            publishedAt: existing.published_at,
+        });
+    } catch (err) {
+        console.error('[Semantic] Update indexing failed:', err.message);
+    }
+
+    const out = db.getAsset(existing.asset_id);
+    res.json({ success: true, asset: assetToResponse(out) });
+});
+
 // ============================================================
 // Catalog — policy-filtered view of all assets
 // consumerNodeId optional: if provided, filters by node's metadata claims

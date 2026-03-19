@@ -5,15 +5,48 @@ import { X } from 'lucide-react';
 const INDUSTRY_OPTIONS = ['construction', 'manufacturing', 'logistics', 'energy', 'automotive'];
 const ROLE_OPTIONS = ['customer', 'contractor', 'supplier', 'manufacturer'];
 
+function toList(value) {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
+    return String(value)
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean);
+}
+
 const EditParticipantDialog = ({ show, participantData, name, bpn, onSave, onCancel }) => {
-    const [industry, setIndustry] = useState('');
-    const [orgRole, setOrgRole] = useState('');
+    const [industryValues, setIndustryValues] = useState([]);
+    const [orgRoleValues, setOrgRoleValues] = useState([]);
+    const [industryOpen, setIndustryOpen] = useState(false);
+    const [orgRoleOpen, setOrgRoleOpen] = useState(false);
 
     useEffect(() => {
         if (!show) return;
-        setIndustry(participantData?.industry || participantData?.metadata?.industry || '');
-        setOrgRole(participantData?.orgRole || participantData?.metadata?.orgRole || '');
+        setIndustryValues(toList(participantData?.industry || participantData?.metadata?.industry));
+        setOrgRoleValues(toList(participantData?.orgRole || participantData?.metadata?.orgRole));
+        setIndustryOpen(false);
+        setOrgRoleOpen(false);
     }, [show, participantData]);
+
+    const toggleValue = (current, setCurrent, value) => {
+        if (current.includes(value)) {
+            setCurrent(current.filter((v) => v !== value));
+            return;
+        }
+        setCurrent([...current, value]);
+    };
+
+    const formatSummary = (values) => {
+        if (values.length === 0) return 'Select values';
+        return values.join(', ');
+    };
+
+    const handleDialogClickCapture = (e) => {
+        const target = e.target;
+        if (target && target.closest && target.closest('[data-cred-dropdown="true"]')) return;
+        setIndustryOpen(false);
+        setOrgRoleOpen(false);
+    };
 
     if (!show) return null;
 
@@ -22,6 +55,7 @@ const EditParticipantDialog = ({ show, participantData, name, bpn, onSave, onCan
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             style={{
                 position: 'fixed',
@@ -40,6 +74,8 @@ const EditParticipantDialog = ({ show, participantData, name, bpn, onSave, onCan
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
+                onClickCapture={handleDialogClickCapture}
+                onPointerDown={(e) => e.stopPropagation()}
                 onWheel={(e) => e.stopPropagation()}
                 style={{
                     background: 'var(--bg-card)',
@@ -79,32 +115,69 @@ const EditParticipantDialog = ({ show, participantData, name, bpn, onSave, onCan
                         />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        <div>
+                    <div>
+                        <div style={{ position: 'relative' }}>
                             <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Industry</label>
-                            <select
-                                value={industry}
-                                onChange={(e) => setIndustry(e.target.value)}
-                                style={{ width: '100%', padding: '8px 10px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.9rem' }}
+                            <button
+                                type="button"
+                                data-cred-dropdown="true"
+                                onClick={() => {
+                                    setIndustryOpen((v) => !v);
+                                    setOrgRoleOpen(false);
+                                }}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                style={{ width: '100%', textAlign: 'left', padding: '8px 10px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.9rem', cursor: 'pointer' }}
                             >
-                                <option value="">-- any --</option>
-                                {INDUSTRY_OPTIONS.map((option) => (
-                                    <option key={option} value={option}>{option}</option>
-                                ))}
-                            </select>
+                                {formatSummary(industryValues)}
+                            </button>
+                            {industryOpen && (
+                                <div data-cred-dropdown="true" onPointerDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 20, border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '8px', background: 'var(--bg-card)', display: 'grid', gap: '6px', maxHeight: '170px', overflowY: 'auto', boxShadow: '0 10px 24px rgba(0,0,0,0.35)' }}>
+                                    {INDUSTRY_OPTIONS.map((option) => (
+                                        <label key={option} style={{ display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-primary)', fontSize: '0.86rem', cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={industryValues.includes(option)}
+                                                onChange={() => toggleValue(industryValues, setIndustryValues, option)}
+                                                onPointerDown={(e) => e.stopPropagation()}
+                                            />
+                                            {option}
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                        <div>
+                    </div>
+
+                    <div>
+                        <div style={{ position: 'relative' }}>
                             <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '4px' }}>Org. Role</label>
-                            <select
-                                value={orgRole}
-                                onChange={(e) => setOrgRole(e.target.value)}
-                                style={{ width: '100%', padding: '8px 10px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.9rem' }}
+                            <button
+                                type="button"
+                                data-cred-dropdown="true"
+                                onClick={() => {
+                                    setOrgRoleOpen((v) => !v);
+                                    setIndustryOpen(false);
+                                }}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                style={{ width: '100%', textAlign: 'left', padding: '8px 10px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.9rem', cursor: 'pointer' }}
                             >
-                                <option value="">-- any --</option>
-                                {ROLE_OPTIONS.map((option) => (
-                                    <option key={option} value={option}>{option}</option>
-                                ))}
-                            </select>
+                                {formatSummary(orgRoleValues)}
+                            </button>
+                            {orgRoleOpen && (
+                                <div data-cred-dropdown="true" onPointerDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 20, border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '8px', background: 'var(--bg-card)', display: 'grid', gap: '6px', maxHeight: '170px', overflowY: 'auto', boxShadow: '0 10px 24px rgba(0,0,0,0.35)' }}>
+                                    {ROLE_OPTIONS.map((option) => (
+                                        <label key={option} style={{ display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-primary)', fontSize: '0.86rem', cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={orgRoleValues.includes(option)}
+                                                onChange={() => toggleValue(orgRoleValues, setOrgRoleValues, option)}
+                                                onPointerDown={(e) => e.stopPropagation()}
+                                            />
+                                            {option}
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -117,7 +190,7 @@ const EditParticipantDialog = ({ show, participantData, name, bpn, onSave, onCan
                         Cancel
                     </button>
                     <button
-                        onClick={() => onSave({ industry, orgRole })}
+                        onClick={() => onSave({ industry: industryValues.join(','), orgRole: orgRoleValues.join(',') })}
                         style={{ padding: '8px 16px', background: '#3b82f6', border: 'none', borderRadius: '6px', color: 'var(--text-primary)', cursor: 'pointer' }}
                     >
                         Save

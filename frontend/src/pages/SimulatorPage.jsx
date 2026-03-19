@@ -199,6 +199,9 @@ function SimulatorPage() {
                     name: assetData.name,
                     description: assetData.description || '',
                     content: assetData.content ?? '',
+                    fileName: assetData.fileName || '',
+                    policyId: assetData.policyId || null,
+                    dcatFields: assetData.dcatFields || {},
                     policy: assetData.policyId || 'open',
                     type: assetData.policyId || 'open',
                     publishedAt: new Date().toISOString()

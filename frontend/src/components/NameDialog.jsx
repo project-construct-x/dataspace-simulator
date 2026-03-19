@@ -15,24 +15,29 @@ function generateDid(name) {
 const INDUSTRY_OPTIONS = ['Construction', 'Manufacturing', 'Logistics', 'Energy', 'Automotive'];
 const ROLE_OPTIONS = ['customer', 'contractor', 'supplier', 'manufacturer'];
 
+function toList(value) {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
+    return String(value).split(',').map((v) => v.trim()).filter(Boolean);
+}
+
 
 const NameDialog = ({ isOpen, onClose, onConfirm, editMode = false, initialData = null, existingNodes = {} }) => {
     const [name, setName] = useState('');
     const [did, setDid] = useState('');
-    const [industry, setIndustry] = useState('');
-    const [orgRole, setOrgRole] = useState('');
+    const [industry, setIndustry] = useState([]);
+    const [orgRole, setOrgRole] = useState([]);
     const [showPresets, setShowPresets] = useState(true);
-    const [hoveredPreset, setHoveredPreset] = useState(null);
+    const [hoverPreview, setHoverPreview] = useState(null);
 
     useEffect(() => {
         if (isOpen) {
             const d = editMode && initialData ? initialData : null;
             setName(d?.name || '');
             setDid(d?.bpn || d?.did || '');
-            setIndustry(d?.metadata?.industry || '');
-            setOrgRole(d?.metadata?.orgRole || '');
+            setIndustry(toList(d?.metadata?.industry));
+            setOrgRole(toList(d?.metadata?.orgRole));
             setShowPresets(true);
-            setHoveredPreset(null);
         }
     }, [isOpen, editMode, initialData]);
 
@@ -56,27 +61,35 @@ const NameDialog = ({ isOpen, onClose, onConfirm, editMode = false, initialData 
         onConfirm({
             name: name.trim(),
             bpn: did.trim(),  // 'bpn' key kept for backward compat with the rest of the app
-            metadata: { industry: industry.trim(), orgRole: orgRole.trim() },
+            metadata: { industry: industry.join(', '), orgRole: orgRole.join(', ') },
         });
-        setName(''); setDid(''); setIndustry(''); setOrgRole('');
+        setName(''); setDid(''); setIndustry([]); setOrgRole([]);
     };
 
-    const handleClose = () => { setName(''); setDid(''); setIndustry(''); setOrgRole(''); onClose(); };
+    const handleClose = () => { setName(''); setDid(''); setIndustry([]); setOrgRole([]); setHoverPreview(null); onClose(); };
 
     const inputStyle = {
         width: '100%', padding: '9px 12px', background: 'var(--bg-surface)',
         border: '1px solid var(--border-subtle)', borderRadius: '8px',
         color: 'var(--text-primary)', fontSize: '0.88rem', boxSizing: 'border-box'
     };
-    const selectStyle = { ...inputStyle, cursor: 'pointer' };
     const labelStyle = {
         display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem',
         marginBottom: '4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em'
     };
-    const fmt = (v) => {
-        if (!v) return 'n/a';
-        return String(v).charAt(0).toUpperCase() + String(v).slice(1);
+    const toggleItem = (values, setValues, value) => {
+        if (values.includes(value)) {
+            setValues(values.filter((v) => v !== value));
+            return;
+        }
+        setValues([...values, value]);
     };
+    const previewPos = hoverPreview
+        ? {
+            left: `${Math.min(hoverPreview.x + 14, window.innerWidth - 300)}px`,
+            top: `${Math.min(hoverPreview.y + 14, window.innerHeight - 140)}px`,
+        }
+        : null;
 
     return (
         <div className="dialog-overlay">
@@ -103,49 +116,61 @@ const NameDialog = ({ isOpen, onClose, onConfirm, editMode = false, initialData 
                             {showPresets && (
                                 <>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '10px' }}>
-                                        {availablePresets.map(([key, preset]) => {
-                                            const isHovered = hoveredPreset?.bpn === preset.bpn;
-                                            return (
-                                                <button key={key} type="button"
-                                                    onClick={() => { onConfirm(preset); setName(''); setDid(''); setIndustry(''); setOrgRole(''); }}
-                                                    onMouseEnter={() => setHoveredPreset(preset)}
-                                                    onMouseLeave={() => setHoveredPreset(null)}
-                                                    style={{
-                                                        padding: '10px 12px',
-                                                        background: isHovered ? 'rgba(34,197,94,0.22)' : 'rgba(34,197,94,0.12)',
-                                                        border: '1px solid rgba(34,197,94,0.35)',
-                                                        borderRadius: '8px',
-                                                        cursor: 'pointer',
-                                                        textAlign: 'left',
-                                                        transition: 'background 120ms ease'
-                                                    }}
-                                                >
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <Building2 size={15} color="#22c55e" />
-                                                        <div>
-                                                            <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--text-primary)' }}>{preset.name}</div>
-                                                            <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{preset.location}</div>
-                                                        </div>
+                                        {availablePresets.map(([key, preset]) => (
+                                            <button key={key} type="button"
+                                                onClick={() => { onConfirm(preset); setName(''); setDid(''); setIndustry([]); setOrgRole([]); }}
+                                                onMouseEnter={(e) => setHoverPreview({ preset, x: e.clientX, y: e.clientY })}
+                                                onMouseMove={(e) => setHoverPreview((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : prev)}
+                                                onMouseLeave={() => setHoverPreview(null)}
+                                                style={{
+                                                    padding: '10px 12px',
+                                                    background: 'rgba(34,197,94,0.12)',
+                                                    border: '1px solid rgba(34,197,94,0.35)',
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer',
+                                                    textAlign: 'left',
+                                                    transition: 'background 120ms ease'
+                                                }}
+                                                onMouseOver={e => e.currentTarget.style.background = 'rgba(34,197,94,0.22)'}
+                                                onMouseOut={e => e.currentTarget.style.background = 'rgba(34,197,94,0.12)'}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <Building2 size={15} color="#22c55e" />
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--text-primary)' }}>{preset.name}</div>
+                                                        <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{preset.location}</div>
                                                     </div>
-                                                </button>
-                                            );
-                                        })}
+                                                </div>
+                                            </button>
+                                        ))}
                                     </div>
-                                    {hoveredPreset && (
-                                        <div style={{
-                                            marginBottom: '16px',
-                                            padding: '10px 12px',
-                                            borderRadius: '8px',
-                                            border: '1px solid var(--border-subtle)',
-                                            background: 'var(--bg-surface)',
-                                            fontSize: '0.76rem',
-                                            color: 'var(--text-secondary)'
-                                        }}>
-                                            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Preview Credentials</div>
-                                            <div>Industry: <strong>{fmt(hoveredPreset.metadata?.industry)}</strong></div>
-                                            <div>Org. Role: <strong>{fmt(hoveredPreset.metadata?.orgRole)}</strong></div>
-                                            <div>DID: <span style={{ fontFamily: 'monospace', fontSize: '0.72rem' }}>{hoveredPreset.bpn}</span></div>
-                                            <div>Capabilities: <strong>{hoveredPreset.roles?.provider ? 'Provider' : ''}{hoveredPreset.roles?.provider && hoveredPreset.roles?.consumer ? ' + ' : ''}{hoveredPreset.roles?.consumer ? 'Consumer' : ''}</strong></div>
+
+                                    {hoverPreview?.preset && previewPos && (
+                                        <div
+                                            style={{
+                                                position: 'fixed',
+                                                left: previewPos.left,
+                                                top: previewPos.top,
+                                                width: '280px',
+                                                background: 'rgba(15, 23, 42, 0.97)',
+                                                border: '1px solid rgba(56, 189, 248, 0.35)',
+                                                borderRadius: '10px',
+                                                padding: '10px 12px',
+                                                boxShadow: '0 10px 24px rgba(0,0,0,0.45)',
+                                                color: '#cbd5e1',
+                                                fontSize: '0.75rem',
+                                                zIndex: 4000,
+                                                pointerEvents: 'none'
+                                            }}
+                                        >
+                                            <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '6px', fontSize: '0.8rem' }}>
+                                                {hoverPreview.preset.name}
+                                            </div>
+                                            <div>Industry: <span style={{ color: '#f8fafc' }}>{hoverPreview.preset?.metadata?.industry || 'n/a'}</span></div>
+                                            <div>Org. Role: <span style={{ color: '#f8fafc' }}>{hoverPreview.preset?.metadata?.orgRole || 'n/a'}</span></div>
+                                            <div style={{ marginTop: '4px', fontFamily: 'monospace', fontSize: '0.7rem', color: '#94a3b8' }}>
+                                                {hoverPreview.preset?.bpn || 'n/a'}
+                                            </div>
                                         </div>
                                     )}
                                 </>
@@ -189,17 +214,36 @@ const NameDialog = ({ isOpen, onClose, onConfirm, editMode = false, initialData 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                             <div>
                                 <label style={labelStyle}>Industry</label>
-                                <select value={industry} onChange={e => setIndustry(e.target.value)} style={selectStyle}>
-                                    <option value="">— any —</option>
-                                    {INDUSTRY_OPTIONS.map(o => <option key={o} value={o.toLowerCase()}>{o}</option>)}
-                                </select>
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    {INDUSTRY_OPTIONS.map((o) => {
+                                        const value = o.toLowerCase();
+                                        return (
+                                            <label key={o} style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '0.8rem', color: 'var(--text-primary)', cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={industry.includes(value)}
+                                                    onChange={() => toggleItem(industry, setIndustry, value)}
+                                                />
+                                                {o}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
                             </div>
                             <div>
                                 <label style={labelStyle}>Org. Role</label>
-                                <select value={orgRole} onChange={e => setOrgRole(e.target.value)} style={selectStyle}>
-                                    <option value="">— any —</option>
-                                    {ROLE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                                </select>
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    {ROLE_OPTIONS.map((o) => (
+                                        <label key={o} style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '0.8rem', color: 'var(--text-primary)', cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={orgRole.includes(o)}
+                                                onChange={() => toggleItem(orgRole, setOrgRole, o)}
+                                            />
+                                            {o}
+                                        </label>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -208,8 +252,8 @@ const NameDialog = ({ isOpen, onClose, onConfirm, editMode = false, initialData 
                     <div className="dialog-actions" style={{ paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
                         <button type="button" onClick={handleClose} className="dialog-btn cancel">Cancel</button>
                         <button type="submit" className="dialog-btn confirm"
-                            disabled={!name.trim() || !did.trim()}
-                            style={{ opacity: (!name.trim() || !did.trim()) ? 0.5 : 1 }}>
+                            disabled={!name.trim() || !did.trim() || industry.length === 0 || orgRole.length === 0}
+                            style={{ opacity: (!name.trim() || !did.trim() || industry.length === 0 || orgRole.length === 0) ? 0.5 : 1 }}>
                             {editMode ? 'Save' : 'Add'}
                         </button>
                     </div>

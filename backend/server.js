@@ -96,6 +96,255 @@ function seedPolicies() {
     }
 }
 
+const DEMO_NODE_LABELS = {
+    nordbeton: 'NordBeton AG',
+    bergstein: 'Bergstein Bau GmbH',
+    stahlwerk: 'Stahlwerk Weber',
+};
+
+const DEMO_ASSETS = [
+    {
+        asset_id: 'cpp-cp-291',
+        owner_node_id: 'nordbeton',
+        name: 'Concrete Product Passport CP-291',
+        description: 'Digital Product Passport for a concrete batch, including basic material and provenance metadata (CP-291).',
+        file_name: 'CP-291.json',
+        asset_content: JSON.stringify({
+            passportId: 'CP-291',
+            product: {
+                type: 'Concrete',
+                tradeName: 'CP-291',
+                compressiveStrengthClass: 'C30/37',
+                densityKgPerM3: 2400,
+            },
+            batch: {
+                batchId: 'NB-2026-03-CP291',
+                productionDate: '2026-03-15',
+                plant: 'NordBeton Plant Hamburg',
+            },
+            provenance: {
+                producer: 'NordBeton AG',
+                countryOfOrigin: 'Germany',
+                sourceQuarry: 'Holcim Aggregates North',
+            },
+            compliance: {
+                standard: 'EN 206',
+                status: 'conformant',
+            },
+        }, null, 2),
+        policy_id: 'sys-open',
+        dcat_fields: {
+            title: 'Concrete Product Passport CP-291',
+            description: 'Digital Product Passport for a concrete batch, including basic material and provenance metadata (CP-291).',
+            spatial: ['Germany'],
+        },
+    },
+    {
+        asset_id: 'cpp-cp-317',
+        owner_node_id: 'nordbeton',
+        name: 'Concrete Product Passport CP-317',
+        description: 'Digital Product Passport for a concrete batch, including mix and quality metadata (CP-317).',
+        file_name: 'CP-317.json',
+        asset_content: JSON.stringify({
+            passportId: 'CP-317',
+            product: {
+                type: 'Concrete',
+                tradeName: 'CP-317',
+                compressiveStrengthClass: 'C35/45',
+                exposureClass: ['XC4', 'XF1'],
+            },
+            batch: {
+                batchId: 'NB-2026-03-CP317',
+                productionDate: '2026-03-16',
+                plant: 'NordBeton Plant Hamburg',
+            },
+            provenance: {
+                producer: 'NordBeton AG',
+                countryOfOrigin: 'Germany',
+            },
+        }, null, 2),
+        policy_id: 'sys-open',
+        dcat_fields: {
+            title: 'Concrete Product Passport CP-317',
+            description: 'Digital Product Passport for a concrete batch, including mix and quality metadata (CP-317).',
+            spatial: ['Germany'],
+        },
+    },
+    {
+        asset_id: 'cpp-cp-442',
+        owner_node_id: 'nordbeton',
+        name: 'Concrete Product Passport CP-442',
+        description: 'Digital Product Passport for a low-carbon concrete mix with transport and curing details (CP-442).',
+        file_name: 'CP-442.json',
+        asset_content: JSON.stringify({
+            passportId: 'CP-442',
+            product: {
+                type: 'Concrete',
+                tradeName: 'CP-442',
+                co2KgPerM3: 175,
+                recycledContentPercent: 22,
+            },
+            batch: {
+                batchId: 'NB-2026-03-CP442',
+                productionDate: '2026-03-18',
+                plant: 'NordBeton Plant Hamburg',
+            },
+            provenance: {
+                producer: 'NordBeton AG',
+                countryOfOrigin: 'Germany',
+            },
+        }, null, 2),
+        policy_id: 'sys-open',
+        dcat_fields: {
+            title: 'Concrete Product Passport CP-442',
+            description: 'Digital Product Passport for a low-carbon concrete mix with transport and curing details (CP-442).',
+            spatial: ['Germany'],
+        },
+    },
+    {
+        asset_id: 'bmp-bim-bridge-a12',
+        owner_node_id: 'bergstein',
+        name: 'Bridge BIM Package A12',
+        description: 'BIM coordination package with model references and schedule links for bridge section A12.',
+        file_name: 'bridge-a12-package.json',
+        asset_content: JSON.stringify({
+            packageId: 'BMP-A12',
+            project: 'A12 Bridge Segment',
+            owner: 'Bergstein Bau GmbH',
+            artifacts: [
+                { type: 'ifc', reference: 's3://demo/bergstein/a12.ifc' },
+                { type: 'schedule', reference: 's3://demo/bergstein/a12-schedule.json' },
+            ],
+        }, null, 2),
+        policy_id: 'sys-open',
+        dcat_fields: {
+            title: 'Bridge BIM Package A12',
+            description: 'BIM coordination package with model references and schedule links for bridge section A12.',
+            spatial: ['Germany'],
+        },
+    },
+    {
+        asset_id: 'swc-steel-cert-884',
+        owner_node_id: 'stahlwerk',
+        name: 'Steel Coil Quality Certificate 884',
+        description: 'Material quality certificate and traceability details for steel coil lot 884.',
+        file_name: 'steel-coil-884-certificate.json',
+        asset_content: JSON.stringify({
+            certificateId: 'SWC-884',
+            supplier: 'Stahlwerk Weber',
+            grade: 'S355',
+            lotNumber: 'LOT-884',
+            issuedAt: '2026-03-10',
+            origin: 'Germany',
+        }, null, 2),
+        policy_id: 'sys-open',
+        dcat_fields: {
+            title: 'Steel Coil Quality Certificate 884',
+            description: 'Material quality certificate and traceability details for steel coil lot 884.',
+            spatial: ['Germany'],
+        },
+    },
+];
+
+async function seedDemoAssets() {
+    console.log('[Seed] Ensuring demo scenario assets ...');
+
+    let inserted = 0;
+    for (const asset of DEMO_ASSETS) {
+        if (db.getAsset(asset.asset_id)) {
+            continue;
+        }
+        const now = new Date().toISOString();
+        const toInsert = {
+            ...asset,
+            dataspace_id: 'demo',
+            published_at: now,
+        };
+
+        db.insertAsset(toInsert);
+        inserted += 1;
+
+        try {
+            await upsertSemanticDataset({
+                datasetId: asset.asset_id,
+                title: asset.name,
+                description: asset.description,
+                keywords: [],
+                themes: [],
+                spatial: Array.isArray(asset?.dcat_fields?.spatial) ? asset.dcat_fields.spatial : [],
+                temporalCoverage: '',
+                additionalDcat: [],
+                policyName: asset.policy_id,
+                publisherBpn: asset.owner_node_id,
+                publisherName: DEMO_NODE_LABELS[asset.owner_node_id] || asset.owner_node_id,
+                sessionCode: 'demo',
+                publishedAt: now,
+            });
+        } catch (err) {
+            console.warn(`[Seed] Semantic index failed for ${asset.asset_id}: ${err.message}`);
+        }
+    }
+
+    if (inserted > 0) {
+        console.log(`[Seed] Demo scenario initialized (${inserted} new asset(s)).`);
+    }
+}
+
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function reindexAllAssetsToSemantic({ maxAttempts = 20, retryDelayMs = 1500 } = {}) {
+    const assets = db.getAllAssets();
+    if (assets.length === 0) {
+        return;
+    }
+
+    let pending = [...assets];
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const failed = [];
+
+        for (const asset of pending) {
+            const owner = db.getNode(asset.owner_node_id);
+            const ownerName = owner?.name || DEMO_NODE_LABELS[asset.owner_node_id] || asset.owner_node_id;
+            const dataspaceId = String(asset.dataspace_id || owner?.metadata?.dataspaceId || 'demo');
+
+            try {
+                await upsertSemanticDataset({
+                    datasetId: asset.asset_id,
+                    title: asset.name,
+                    description: asset.description,
+                    keywords: normalizeList(asset?.dcat_fields?.keywords),
+                    themes: normalizeList(asset?.dcat_fields?.themes),
+                    spatial: normalizeList(asset?.dcat_fields?.spatial),
+                    temporalCoverage: asset?.dcat_fields?.temporalCoverage || '',
+                    additionalDcat: asset?.dcat_fields?.additionalDcat || [],
+                    policyName: asset.policy_id || '',
+                    publisherBpn: asset.owner_node_id,
+                    publisherName: ownerName,
+                    sessionCode: dataspaceId,
+                    publishedAt: asset.published_at || new Date().toISOString(),
+                });
+            } catch (_err) {
+                failed.push(asset);
+            }
+        }
+
+        if (failed.length === 0) {
+            if (attempt > 1) {
+                console.log(`[Seed] Semantic index recovered on retry ${attempt}.`);
+            }
+            return;
+        }
+
+        pending = failed;
+        await sleep(retryDelayMs);
+    }
+
+    console.warn(`[Seed] Semantic index still incomplete after retries (${pending.length} asset(s) not indexed).`);
+}
+
 
 
 // ============================================================
@@ -204,7 +453,9 @@ app.delete('/api/policies/:id', (req, res) => {
 
 app.get('/api/assets', (req, res) => {
     const { nodeId } = req.query;
-    const assets = nodeId ? db.getAssetsByNode(nodeId) : db.getAllAssets();
+    const dataspaceId = resolveDataspaceId(req.query?.dataspaceId);
+    const scopedAssets = db.getAllAssets().filter((a) => String(a.dataspace_id || 'demo') === dataspaceId);
+    const assets = nodeId ? scopedAssets.filter((a) => a.owner_node_id === nodeId) : scopedAssets;
     res.json(assets.map(assetToResponse));
 });
 
@@ -216,6 +467,7 @@ app.get('/api/assets/:id', (req, res) => {
 
 app.post('/api/assets', async (req, res) => {
     const { nodeId, asset } = req.body;
+    const dataspaceId = resolveDataspaceId(req.body?.dataspaceId);
     if (!nodeId || !asset?.name) return res.status(400).json({ error: 'nodeId and asset.name required' });
 
     const node = db.getNode(nodeId);
@@ -226,6 +478,7 @@ app.post('/api/assets', async (req, res) => {
 
     const row = {
         asset_id: assetId,
+        dataspace_id: dataspaceId,
         owner_node_id: nodeId,
         name: String(asset.name).trim(),
         description: String(asset.description || asset?.dcatFields?.description || '').trim(),
@@ -252,7 +505,7 @@ app.post('/api/assets', async (req, res) => {
             policyName: asset.policyId || '',
             publisherBpn: nodeId,  // use nodeId as the "publisher" identifier in Fuseki
             publisherName: node.name,
-            sessionCode: 'local',
+            sessionCode: dataspaceId,
             publishedAt: now,
         });
     } catch (err) {
@@ -279,11 +532,13 @@ app.put('/api/assets/:id', async (req, res) => {
     if (!name) return res.status(400).json({ error: 'asset.name required' });
 
     const ownerNodeId = payload.ownerNodeId || existing.owner_node_id;
+    const dataspaceId = resolveDataspaceId(payload.dataspaceId || req.body?.dataspaceId || existing.dataspace_id);
     const ownerNode = db.getNode(ownerNodeId);
     if (!ownerNode) return res.status(404).json({ error: 'Owner node not found' });
 
     const updated = {
         asset_id: existing.asset_id,
+        dataspace_id: dataspaceId,
         name,
         description: String(payload.description ?? existing.description ?? '').trim(),
         asset_content: typeof payload.content === 'string'
@@ -309,7 +564,7 @@ app.put('/api/assets/:id', async (req, res) => {
             policyName: updated.policy_id || '',
             publisherBpn: ownerNodeId,
             publisherName: ownerNode.name,
-            sessionCode: 'local',
+            sessionCode: dataspaceId,
             publishedAt: existing.published_at,
         });
     } catch (err) {
@@ -327,7 +582,8 @@ app.put('/api/assets/:id', async (req, res) => {
 
 app.get('/api/catalog', (req, res) => {
     const { consumerNodeId, providerNodeId } = req.query;
-    const all = db.getAllAssets();
+    const dataspaceId = resolveDataspaceId(req.query?.dataspaceId);
+    const all = db.getAllAssets().filter((a) => String(a.dataspace_id || 'demo') === dataspaceId);
 
     let visible = all;
     if (consumerNodeId) {
@@ -362,9 +618,10 @@ app.get('/api/catalog', (req, res) => {
 
 app.post('/api/semantic/search', async (req, res) => {
     const { searchText = '', consumerNodeId, providerNodeIds = null, dcatFilters = {}, dcatFieldFilters = [], limit = 25 } = req.body || {};
+    const dataspaceId = resolveDataspaceId(req.body?.dataspaceId);
 
     // Catalog-first visibility: determine exactly which assets are visible
-    let visibleAssets = db.getAllAssets();
+    let visibleAssets = db.getAllAssets().filter((a) => String(a.dataspace_id || 'demo') === dataspaceId);
     if (consumerNodeId) {
         const consumer = db.getNode(consumerNodeId);
         if (consumer) {
@@ -386,7 +643,7 @@ app.post('/api/semantic/search', async (req, res) => {
     try {
         const rawResults = await semanticSearch({
             searchText,
-            sessionCode: 'local',
+            sessionCode: dataspaceId,
             datasetIds: visibleDatasetIds,
             dcatFilters,
             dcatFieldFilters,
@@ -416,8 +673,14 @@ app.post('/api/semantic/search', async (req, res) => {
 
 app.post('/api/negotiate', (req, res) => {
     const { consumerNodeId, providerNodeId, assetId } = req.body;
+    const dataspaceId = resolveDataspaceId(req.body?.dataspaceId);
     if (!consumerNodeId || !providerNodeId || !assetId) {
         return res.status(400).json({ error: 'consumerNodeId, providerNodeId, assetId required' });
+    }
+    const asset = db.getAsset(assetId);
+    if (!asset) return res.status(404).json({ success: false, error: 'Asset not found' });
+    if (String(asset.dataspace_id || 'demo') !== dataspaceId) {
+        return res.status(400).json({ success: false, error: 'Asset is not in active dataspace' });
     }
     const result = initiateNegotiation({ consumerNodeId, providerNodeId, assetId });
     if (result.error) return res.status(400).json({ success: false, error: result.error });
@@ -449,8 +712,16 @@ app.get('/api/negotiations', (req, res) => {
 
 app.post('/api/transfer', (req, res) => {
     const { negotiationId, consumerNodeId } = req.body;
+    const dataspaceId = resolveDataspaceId(req.body?.dataspaceId);
     if (!negotiationId || !consumerNodeId) {
         return res.status(400).json({ error: 'negotiationId and consumerNodeId required' });
+    }
+    const negotiation = db.getNegotiation(negotiationId);
+    if (!negotiation) return res.status(404).json({ success: false, error: 'Negotiation not found' });
+    const negotiatedAsset = db.getAsset(negotiation.asset_id);
+    if (!negotiatedAsset) return res.status(404).json({ success: false, error: 'Asset not found' });
+    if (String(negotiatedAsset.dataspace_id || 'demo') !== dataspaceId) {
+        return res.status(400).json({ success: false, error: 'Negotiation asset is not in active dataspace' });
     }
     const result = initiateTransfer({ negotiationId, consumerNodeId });
     if (result.error) return res.status(400).json({ success: false, error: result.error });
@@ -474,19 +745,29 @@ app.get('/api/mydata', (req, res) => {
 // ============================================================
 
 app.post('/api/reset', async (req, res) => {
-    const { keepNodes = true } = req.body || {};
-    const assets = db.getAllAssets();
+    const { keepNodes = true, keepAssets = false } = req.body || {};
+    const dataspaceId = resolveDataspaceId(req.body?.dataspaceId);
 
-    for (const a of assets) {
-        try { await deleteSemanticDataset(a.asset_id); } catch (_) { }
-        db.deleteAsset(a.asset_id);
+    if (!keepAssets) {
+        const assets = db.getAllAssets().filter((a) => String(a.dataspace_id || 'demo') === dataspaceId);
+        for (const a of assets) {
+            try { await deleteSemanticDataset(a.asset_id); } catch (_) { }
+            db.deleteAsset(a.asset_id);
+        }
     }
 
     if (!keepNodes) {
-        db.getAllNodes().forEach(n => db.deleteNode(n.node_id));
+        db.getAllNodes()
+            .filter((n) => String(n?.metadata?.dataspaceId || 'demo') === dataspaceId)
+            .forEach((n) => db.deleteNode(n.node_id));
     }
 
-    res.json({ success: true, message: keepNodes ? 'Assets reset, nodes kept' : 'Full reset' });
+    res.json({
+        success: true,
+        message: keepAssets
+            ? (keepNodes ? 'No reset action requested' : 'Nodes reset, assets kept')
+            : (keepNodes ? 'Assets reset, nodes kept' : 'Full reset')
+    });
 });
 
 // ============================================================
@@ -497,6 +778,11 @@ function normalizeList(value) {
     if (!value) return [];
     if (Array.isArray(value)) return value.map(String).map(s => s.trim()).filter(Boolean);
     return String(value).split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function resolveDataspaceId(raw) {
+    const id = String(raw || '').trim();
+    return id || 'demo';
 }
 
 function buildPolicyMap(assets) {
@@ -512,6 +798,7 @@ function buildPolicyMap(assets) {
 function assetToResponse(a) {
     return {
         id: a.asset_id,
+        dataspaceId: a.dataspace_id || 'demo',
         name: a.name,
         description: a.description,
         content: a.asset_content || '',
@@ -529,6 +816,12 @@ function assetToResponse(a) {
 
 server.listen(PORT, () => {
     seedPolicies();
+    seedDemoAssets().catch((err) => {
+        console.warn(`[Seed] Demo scenario failed: ${err.message}`);
+    });
+    reindexAllAssetsToSemantic().catch((err) => {
+        console.warn(`[Seed] Semantic reindex failed: ${err.message}`);
+    });
     console.log('');
 
     console.log('══════════════════════════════════════════════');

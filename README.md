@@ -1,123 +1,203 @@
 # Dataspace Simulator
 
-Standalone interactive simulator for teaching and demonstrating core dataspace workflows,
-including catalog visibility, policy-based access, semantic search, negotiation, and transfer.
+The simulator is a standalone, interactive dataspace environment for research and teaching.
+It lets users experience end-to-end dataspace behavior visually, including participant
+discovery, catalog visibility, policy-based access control, semantic search, contract
+negotiation, and data transfer.
 
-## About
+The focus is not protocol compliance, but conceptual correctness and reproducibility.
+This makes the simulator suitable as the primary artifact for a semantics-focused paper.
 
-This project provides a reproducible local dataspace environment focused on conceptual
-correctness and explainability rather than full protocol compliance. It is designed for
-research demos, classroom settings, and semantics-focused evaluation.
+## Purpose
 
-### What is included
+- Demonstrate dataspace fundamentals in an interactive and explainable way
+- Provide a controllable testbed for semantic discovery with DCAT and SPARQL
+- Show how credential-based policies affect visibility and access decisions
+- Offer a reproducible local environment with no external dependencies
 
-- Visual frontend for discovery, catalog browsing, semantic search, negotiation, and transfer
-- Backend orchestration with policy checks and negotiation/transfer state machine
-- RDF/DCAT metadata indexing and SPARQL querying via Apache Fuseki
-- Persistent local storage using SQLite and Docker volumes
+## Scope and non-goals
 
-### Out of scope
+What it includes:
+- Interactive UI for participants, catalogs, semantic search, negotiation, and transfer
+- Policy engine that evaluates access constraints against participant claims
+- RDF/DCAT metadata indexing in Apache Fuseki with SPARQL querying
+- Persistent local state via SQLite and Docker volumes
 
+What it does not include:
 - Full DSP/EDC interoperability
 - Production-grade trust infrastructure and identity federation
 - Real network-level data plane implementation
 
-## Documentation
+## Quick start
 
-The key documentation is in this `README.md` and covers architecture, setup, and runtime behavior.
+```bash
+docker compose up -d --build
+```
 
-## Getting Started
+On first startup, the backend seeds a ready-to-run demo scenario with preset participants
+and sample assets (including multiple product passports for NordBeton).
 
-### Prerequisites
+Open:
+- Simulator UI: `http://localhost:4000`
+- Backend API: `http://localhost:4001`
+- Fuseki UI: `http://localhost:4030`
 
-To run and work with this project, the following prerequisites are needed:
+To reset to a clean first-run state (and re-apply demo seed data):
 
-- Docker Desktop (or Docker Engine) with Docker Compose support
+```bash
+docker compose down -v
+docker compose up -d --build
+```
 
-### Installation
-
-To run this project, execute the following steps:
-
-1. Clone this repository
-
-   ```sh
-   git clone https://github.com/project-construct-x/dataspace-simulator.git
-   ```
-
-2. Open the project directory
-
-   ```sh
-   cd <your-repo>
-   ```
-
-3. Start all services
-
-   ```sh
-   docker compose up -d --build
-   ```
-
-4. Open the applications
-
-   - Simulator UI: `http://localhost:4000`
-   - Backend API: `http://localhost:4001`
-   - Fuseki UI: `http://localhost:4030`
-
-## Runtime Architecture
+## Runtime architecture
 
 | Component | Role | Port |
 |---|---|---|
-| `sim-frontend` | React-based interactive simulator UI | 4000 |
-| `sim-backend` | Node.js API, policy checks, state machine, persistence | 4001 |
-| `sim-fuseki` | RDF store and SPARQL endpoint for semantic metadata | 4030 |
+| `sim-frontend` | React-based interactive simulator UI | 3000 |
+| `sim-backend` | Node.js API, policy checks, state machine, persistence | 3001 |
+| `sim-fuseki` | RDF store and SPARQL endpoint for semantic metadata | 3030 |
 
 Persistence:
+- SQLite database inside backend container (`/data/simulator.db`)
+- Fuseki dataset in Docker volume (`fuseki-data`)
 
-- SQLite database in backend container at `/data/simulator.db`
-- Fuseki dataset stored in Docker volume `fuseki-data`
+## Functional model
 
-## Functional Flow
+### 1) Participants and credentials
 
-1. Participants with claims (for example `industry`, `orgRole`) interact as providers/consumers.
-2. Providers publish assets with optional policies and optional semantic metadata.
-3. Catalog visibility is filtered by policy before semantic ranking is applied.
-4. Semantic search runs SPARQL in Fuseki, restricted to policy-visible datasets.
-5. Negotiation follows `REQUESTED -> OFFERED -> AGREED` or `TERMINATED`.
-6. Transfer is completed through the backend state machine and persisted for visualization.
+Participants (nodes) represent organizations in a dataspace. Each node can carry claims
+such as `industry` and `orgRole` and role capabilities (`provider`, `consumer`).
 
-## Semantic and Policy Model
+These claims are evaluated by policies during catalog and negotiation phases.
 
-Assets are mapped to RDF as `dcat:Dataset` resources with common predicates such as
-`dct:title`, `dct:description`, `dcat:keyword`, and `dcat:theme`.
+### 2) Publish
 
-Policies are represented as constraint sets and evaluated against consumer claims at:
+A provider publishes an asset with:
+- Base fields: title, description, filename
+- Optional policy template
+- Optional DCAT metadata fields
+- File payload (`JSON`, `CSV`, or `TXT`)
 
-- Catalog stage (visibility)
-- Negotiation stage (contractability)
+On publish:
+- Asset and payload are persisted in SQLite
+- Semantic metadata is converted to RDF/DCAT and indexed in Fuseki
 
-This separation makes policy filtering and semantic ranking behavior explicit and reproducible.
+### 3) Discovery and catalog access
 
-## Project Structure
+The consumer discovers available providers and requests catalogs.
+Catalog responses are policy-filtered first, based on the consumer's claims.
+
+This is intentional: semantic ranking is only applied within policy-visible assets.
+
+### 4) Semantic search
+
+Semantic search follows a catalog-first strategy:
+1. Determine visible assets using policy checks
+2. Restrict semantic query scope to those visible dataset IDs
+3. Run SPARQL in Fuseki for semantic refinement
+
+Supported query styles:
+- Free-text search
+- Field-level filters over DCAT fields
+- Combined text + structured filters
+
+### 5) Negotiation
+
+The negotiation state machine models:
+- `REQUESTED -> OFFERED -> AGREED`
+- or `TERMINATED` on policy denial
+
+Policy is checked again at negotiation time to model access enforcement at contract phase.
+
+### 6) Transfer
+
+After `AGREED`, transfer is initiated and completed through the backend state machine.
+
+In this simulator, transfer means:
+- provider asset payload is copied to the consumer-side received store
+- transfer lifecycle is persisted and visualized
+
+This models functional transfer semantics, not low-level data-plane transport.
+
+## Semantic implementation details
+
+### Data model
+
+Assets are indexed as `dcat:Dataset` resources with common fields like:
+- `dct:title`, `dct:description`, `dct:identifier`
+- `dcat:keyword`, `dcat:theme`
+- `dct:spatial`, `dct:temporal`
+- optional additional DCAT/DCT predicates
+
+### Named graphs
+
+RDF is stored in named graphs grouped by publisher and session context.
+This improves conceptual isolation and supports cleaner argumentation for multi-party data
+spaces (even though runtime is simulated in a single local deployment).
+
+### Query behavior
+
+SPARQL queries are generated by backend code and include:
+- catalog-derived dataset ID restrictions
+- optional text matching across title/description/keywords/themes
+- optional field-specific constraints over selected DCAT predicates
+
+## Policy model
+
+Policies are represented as constraint sets and evaluated against consumer claims.
+The evaluator supports practical claim checks (for example `In` over values like industry,
+role, or participant identifier).
+
+Policy effects appear in two places:
+- Catalog visibility (what can be discovered)
+- Negotiation decision (what can be contracted)
+
+## Visual simulation model
+
+The UI intentionally visualizes control flow:
+- discovery pulses
+- control plane request/response beams
+- negotiation states
+- data transfer states
+
+This is used as explanatory instrumentation for teaching and for paper figures/demo videos.
+
+## Project structure
 
 ```text
-backend/
-  server.js            API and orchestration
-  db.js                SQLite schema and persistence
-  semantic.js          RDF mapping, Fuseki I/O, SPARQL search
-  policy.js            Policy evaluation
-  state-machine.js     Negotiation and transfer lifecycle
-frontend/
-  src/                 UI components and pages
-  package.json
-docker-compose.yml
-LICENSE
-LICENSE_non-code
-README.md
+simulator/
+  backend/
+    server.js            API and orchestration
+    db.js                SQLite schema and persistence access
+    semantic.js          RDF mapping, Fuseki IO, SPARQL search
+    policy.js            Policy evaluation
+    state-machine.js     Negotiation and transfer lifecycle
+  frontend/
+    src/
+      components/        visualization and interaction components
+      pages/             application pages
+  docker-compose.yml
+  README.md
+  PRESENTATION.md
 ```
 
-## License
+## Why this is paper-ready
 
-All code files are distributed under the Apache 2.0 license.
-See [LICENSE](./LICENSE) for more information.
+The simulator is suitable as the central artifact for a semantics paper because it provides:
+- Controlled experimentation under reproducible local conditions
+- Clear separation of policy filtering and semantic ranking
+- Explainable UI traces for each phase of discovery and access
+- Explicit RDF/SPARQL implementation that can be inspected and replicated
 
-All non-code files are distributed under the Creative Commons Attribution 4.0 International license.
-See [LICENSE_non-code](./LICENSE_non-code) for more information.
+## Limitations (to state explicitly in the paper)
+
+- Single deployment simulates multiple participants; no real distributed trust fabric
+- No full connector protocol stack (DSP/EDC) in runtime path
+- No binary data-plane implementation beyond local transfer semantics
+
+These limitations are acceptable for early-stage semantic workflow validation and
+interaction-centered evaluation.
+
+## Related documentation
+
+- `simulator/PRESENTATION.md` for a full talk/demo script and architecture narrative

@@ -29,6 +29,7 @@ const BrowseDataspacePopup = ({
     currentNodeId,
     negotiationState,
     negotiationStatusText,
+    negotiationProtocolState,
     currentNegotiatingAsset,
     selectedProvider,
     providerAssets,
@@ -74,7 +75,17 @@ const BrowseDataspacePopup = ({
         activeProviders: 0
     });
 
+    const dataspaceId = String(allNodes?.[currentNodeId]?.dataspaceId || 'demo');
+
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const getProtocolStateColor = (state) => {
+        if (state === 'AGREED') return '#16a34a';
+        if (state === 'TERMINATED') return '#dc2626';
+        if (state === 'OFFERED') return '#d97706';
+        if (state === 'REQUESTED') return '#2563eb';
+        return '#64748b';
+    };
 
     const getConnectedProviderIds = () => {
         return Object.entries(allNodes)
@@ -141,7 +152,7 @@ const BrowseDataspacePopup = ({
                 emitRing();
 
                 await sleep(ESTABLISHED_MS);
-                await fetch(`${API_BASE}/catalog?consumerNodeId=${encodeURIComponent(currentNodeId)}&providerNodeId=${encodeURIComponent(providerId)}`);
+                await fetch(`${API_BASE}/catalog?dataspaceId=${encodeURIComponent(dataspaceId)}&consumerNodeId=${encodeURIComponent(currentNodeId)}&providerNodeId=${encodeURIComponent(providerId)}`);
 
                 ringMap.set(providerId, { fromNodeId: currentNodeId, toNodeId: providerId, returning: true });
                 emitRing();
@@ -172,6 +183,7 @@ const BrowseDataspacePopup = ({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     searchText: semanticQuery,
+                    dataspaceId,
                     consumerNodeId: currentNodeId,
                     providerNodeIds: providerIds,
                     dcatFieldFilters: fieldFilters,
@@ -328,6 +340,11 @@ const BrowseDataspacePopup = ({
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', marginBottom: '16px', fontFamily: 'monospace', background: 'var(--bg-surface)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
                                 {negotiationStatusText || 'Processing...'}
                             </div>
+                            {negotiationProtocolState && (
+                                <div style={{ marginBottom: '12px', fontSize: '0.7rem', fontWeight: 700, color: getProtocolStateColor(negotiationProtocolState), border: `1px solid ${getProtocolStateColor(negotiationProtocolState)}55`, background: `${getProtocolStateColor(negotiationProtocolState)}22`, borderRadius: '999px', padding: '4px 10px', display: 'inline-block' }}>
+                                    State: {negotiationProtocolState}
+                                </div>
+                            )}
                             {currentNegotiatingAsset && (
                                 <div style={{ background: 'var(--bg-card)', borderRadius: '8px', padding: '10px', marginBottom: '12px', border: '1px solid var(--border-subtle)', textAlign: 'left' }}>
                                     <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '4px' }}>Asset</div>
@@ -440,6 +457,18 @@ const BrowseDataspacePopup = ({
             {/* ─────────────── SEMANTIC SEARCH TAB ─────────────── */}
             {!selectedProvider && activeTab === 'semantic' && (
                 <div onWheel={(e) => e.stopPropagation()} style={{ padding: '12px 14px', maxHeight: '440px', overflow: 'auto' }}>
+                    {negotiationState !== 'idle' && (
+                        <div style={{ marginBottom: '10px', padding: '8px', border: '1px solid var(--border-subtle)', borderRadius: '7px', background: 'var(--bg-card)' }}>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-primary)', marginBottom: '4px', fontWeight: 600 }}>
+                                {negotiationStatusText || 'Processing contract request...'}
+                            </div>
+                            {negotiationProtocolState && (
+                                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: getProtocolStateColor(negotiationProtocolState) }}>
+                                    State: {negotiationProtocolState}
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
                         <input
                             type="text" value={semanticQuery}

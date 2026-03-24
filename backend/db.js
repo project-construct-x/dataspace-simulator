@@ -37,6 +37,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS assets (
     asset_id     TEXT PRIMARY KEY,
+    dataspace_id TEXT NOT NULL DEFAULT 'demo',
     owner_node_id TEXT NOT NULL,
     name         TEXT NOT NULL,
     description  TEXT NOT NULL DEFAULT '',
@@ -97,6 +98,7 @@ function ensureColumn(tableName, columnName, definitionSql) {
 
 ensureColumn('assets', 'asset_content', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('received_data', 'asset_content', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('assets', 'dataspace_id', "TEXT NOT NULL DEFAULT 'demo'");
 
 // ---------------------------------------------------------------------------
 // Nodes
@@ -117,9 +119,9 @@ const _updatePos = db.prepare(`UPDATE nodes SET x = ?, y = ? WHERE node_id = ?`)
 
 const _insertAsset = db.prepare(`
   INSERT OR REPLACE INTO assets
-    (asset_id, owner_node_id, name, description, asset_content, file_name, policy_id, dcat_fields, published_at)
+    (asset_id, dataspace_id, owner_node_id, name, description, asset_content, file_name, policy_id, dcat_fields, published_at)
   VALUES
-    (@asset_id, @owner_node_id, @name, @description, @asset_content, @file_name, @policy_id, @dcat_fields, @published_at)
+    (@asset_id, @dataspace_id, @owner_node_id, @name, @description, @asset_content, @file_name, @policy_id, @dcat_fields, @published_at)
 `);
 const _getAsset = db.prepare(`SELECT * FROM assets WHERE asset_id = ?`);
 const _getAssetsByNode = db.prepare(`SELECT * FROM assets WHERE owner_node_id = ? ORDER BY published_at DESC`);
@@ -127,6 +129,7 @@ const _getAllAssets = db.prepare(`SELECT * FROM assets ORDER BY published_at DES
 const _updateAsset = db.prepare(`
   UPDATE assets
   SET name = @name,
+      dataspace_id = @dataspace_id,
       description = @description,
       asset_content = @asset_content,
       file_name = @file_name,

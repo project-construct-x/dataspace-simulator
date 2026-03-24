@@ -38,6 +38,7 @@ const BrowseDataspacePanel = ({
     searchResults,
     isSearching
 }) => {
+    const dataspaceId = String(allNodes?.[currentNodeId]?.dataspaceId || 'demo');
     // ── Tab ─────────────────────────────────────────────────────────
     const [tab, setTab] = useState('browse');
 
@@ -103,7 +104,7 @@ const BrowseDataspacePanel = ({
             const res = await fetch(`${API_BASE}/semantic/search`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ searchText: semanticQuery, consumerNodeId: currentNodeId, providerNodeIds, limit: 30 })
+                body: JSON.stringify({ dataspaceId, searchText: semanticQuery, consumerNodeId: currentNodeId, providerNodeIds, limit: 30 })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || data.details || 'Semantic search failed');

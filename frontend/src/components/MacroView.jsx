@@ -149,8 +149,16 @@ const MacroView = forwardRef(({
     // Zoom-basierte Fokus-Logik (ersetzt isZoomed boolean)
     const isFocused = viewState.scale > ZOOM_THRESHOLD_FOCUS;
 
-    // Use INITIAL_NODES for demo, empty for new dataspaces
-    const initialNodesForDataspace = isDemo ? INITIAL_NODES : {};
+    // Use preset participants for demo-like spaces; namespace IDs outside the canonical demo space
+    const initialNodesForDataspace = React.useMemo(() => {
+        if (!isDemo) return {};
+        if (dataspaceId === 'demo') return INITIAL_NODES;
+        const namespaced = {};
+        for (const [id, node] of Object.entries(INITIAL_NODES)) {
+            namespaced[`${dataspaceId}::${id}`] = node;
+        }
+        return namespaced;
+    }, [isDemo, dataspaceId]);
     const ringRadius = (minimalView ? 330 : 550) + 60;
 
     const {
@@ -197,7 +205,7 @@ const MacroView = forwardRef(({
     useEffect(() => {
         async function loadAssets() {
             try {
-                const res = await fetch('/api/assets');
+                const res = await fetch(`/api/assets?dataspaceId=${encodeURIComponent(dataspaceId)}`);
                 const assets = await res.json();
                 const allowedNodeIds = new Set(Object.keys(nodes));
                 const grouped = {};
@@ -253,7 +261,7 @@ const MacroView = forwardRef(({
             const res = await fetch(`/api/assets/${assetId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ asset: payload }),
+                body: JSON.stringify({ dataspaceId, asset: { ...payload, dataspaceId } }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data?.error || 'Update failed');

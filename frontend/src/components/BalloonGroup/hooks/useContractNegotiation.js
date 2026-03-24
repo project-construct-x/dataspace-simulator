@@ -16,12 +16,14 @@ export const useContractNegotiation = ({
     onAddAsset,
     onRequestContract
 }) => {
+    const dataspaceId = String(allNodes?.[currentNodeId]?.dataspaceId || 'demo');
     const [isSearchingLocal, setIsSearchingLocal] = useState(false);
     const [selectedProvider, setSelectedProvider] = useState(null);
     const [providerAssets, setProviderAssets] = useState([]);
     const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
     const [negotiationState, setNegotiationState] = useState('idle');
     const [negotiationStatusText, setNegotiationStatusText] = useState('');
+    const [negotiationProtocolState, setNegotiationProtocolState] = useState('');
     const [currentNegotiatingAsset, setCurrentNegotiatingAsset] = useState(null);
     const [negotiatingProvider, setNegotiatingProvider] = useState(null);
     const [currentNegotiationId, setCurrentNegotiationId] = useState(null);
@@ -217,6 +219,7 @@ export const useContractNegotiation = ({
         setNegotiatingProvider(provider);
         setNegotiationState('connecting');
         setNegotiationStatusText('Establishing Connection...');
+        setNegotiationProtocolState('');
 
         onLocalSearchChange('toConnector');
         await sleep(1000);
@@ -243,6 +246,7 @@ export const useContractNegotiation = ({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    dataspaceId,
                     consumerNodeId: currentNodeId,
                     providerNodeId,
                     assetId,
@@ -258,6 +262,7 @@ export const useContractNegotiation = ({
 
             let status = negotiateData.status;
             let denialReason = negotiateData.denialReason;
+            setNegotiationProtocolState(status || 'REQUESTED');
 
             for (let i = 0; i < 12 && status !== 'AGREED' && status !== 'TERMINATED'; i += 1) {
                 setNegotiationStatusText(status === 'OFFERED' ? 'Offer Received...' : 'Waiting for Provider Offer...');
@@ -267,9 +272,11 @@ export const useContractNegotiation = ({
                 const statusData = await statusRes.json();
                 status = statusData.status;
                 denialReason = statusData.denial_reason || denialReason;
+                setNegotiationProtocolState(status || 'REQUESTED');
             }
 
             if (status !== 'AGREED') {
+                setNegotiationProtocolState(status || 'TERMINATED');
                 setNegotiationStatusText(`Denied: ${denialReason || 'Policy check failed'}`);
                 await sleep(1400);
                 setRingLight(null);
@@ -295,6 +302,7 @@ export const useContractNegotiation = ({
         setControlPlaneGlow(null);
 
         setNegotiationState('success');
+        setNegotiationProtocolState('AGREED');
         setNegotiationStatusText('Contract Signed');
 
         if (autoTransfer) {
@@ -362,6 +370,7 @@ export const useContractNegotiation = ({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    dataspaceId,
                     negotiationId: effectiveNegotiationId,
                     consumerNodeId: currentNodeId,
                 })
@@ -406,6 +415,7 @@ export const useContractNegotiation = ({
         await sleep(1200);
         setNegotiationState('idle');
         setNegotiationStatusText('');
+        setNegotiationProtocolState('');
         setCurrentNegotiatingAsset(null);
         setNegotiatingProvider(null);
         setCurrentNegotiationId(null);
@@ -416,6 +426,7 @@ export const useContractNegotiation = ({
     const resetNegotiationState = () => {
         setNegotiationState('idle');
         setNegotiationStatusText('');
+        setNegotiationProtocolState('');
         setCurrentNegotiatingAsset(null);
         setNegotiatingProvider(null);
         setCurrentNegotiationId(null);
@@ -428,6 +439,7 @@ export const useContractNegotiation = ({
         isLoadingCatalog,
         negotiationState,
         negotiationStatusText,
+        negotiationProtocolState,
         currentNegotiatingAsset,
         negotiatingProvider,
         cachedSearchResultsRef,

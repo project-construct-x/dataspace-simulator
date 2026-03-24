@@ -57,6 +57,7 @@ const BalloonGroup = ({
         isLoadingCatalog,
         negotiationState,
         negotiationStatusText,
+        negotiationProtocolState,
         currentNegotiatingAsset,
         cachedSearchResultsRef,
         handleSearch: hookHandleSearch,
@@ -283,6 +284,7 @@ const BalloonGroup = ({
                 currentNodeId={currentNodeId}
                 negotiationState={negotiationState}
                 negotiationStatusText={negotiationStatusText}
+                negotiationProtocolState={negotiationProtocolState}
                 currentNegotiatingAsset={currentNegotiatingAsset}
                 selectedProvider={selectedProvider}
                 providerAssets={providerAssets}

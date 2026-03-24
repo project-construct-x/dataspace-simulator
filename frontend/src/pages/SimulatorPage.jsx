@@ -44,27 +44,46 @@ function SimulatorPage() {
     const [dataPlaneConnection, setDataPlaneConnection] = useState(null);
     const [dataTransfer, setDataTransfer] = useState(null);
 
-    // Demo dataspace definition
-    const DEMO_DATASPACE = {
-        id: 'demo',
-        code: 'DEMO',
-        name: 'Simulator',
-        participants: 3,
-        isDemo: true
-    };
+    // System dataspaces
+    const SYSTEM_DATASPACES = [
+        {
+            id: 'simulator',
+            code: 'SIM',
+            name: 'Simulator',
+            participants: 3,
+            isDemo: true,
+            locked: true,
+        },
+        {
+            id: 'demo',
+            code: 'DEMO',
+            name: 'Demo',
+            participants: 3,
+            isDemo: true,
+            locked: true,
+        }
+    ];
 
     // Multi-Dataspace State
     const [dataspaces, setDataspaces] = useState(() => {
         try {
             const saved = JSON.parse(localStorage.getItem('simulator.dataspaces') || '[]');
             if (Array.isArray(saved) && saved.length > 0) {
-                if (!saved.some((d) => d.id === 'demo')) return [DEMO_DATASPACE, ...saved];
-                return saved;
+                const merged = [...saved];
+                for (const systemSpace of SYSTEM_DATASPACES) {
+                    const idx = merged.findIndex((d) => d.id === systemSpace.id);
+                    if (idx === -1) {
+                        merged.unshift(systemSpace);
+                    } else {
+                        merged[idx] = { ...merged[idx], ...systemSpace, locked: true, isDemo: true };
+                    }
+                }
+                return merged;
             }
         } catch (_) { }
-        return [DEMO_DATASPACE];
+        return SYSTEM_DATASPACES;
     });
-    const [activeDataspaceId, setActiveDataspaceId] = useState(() => localStorage.getItem('simulator.activeDataspaceId') || 'demo');
+    const [activeDataspaceId, setActiveDataspaceId] = useState(() => localStorage.getItem('simulator.activeDataspaceId') || 'simulator');
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('simulator.sidebarCollapsed') === '1');
 
     useEffect(() => {
@@ -179,6 +198,7 @@ function SimulatorPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     nodeId,
+                    dataspaceId: activeDataspaceId,
                     asset: {
                         name: assetData.name,
                         description: assetData.description || '',
@@ -247,20 +267,25 @@ function SimulatorPage() {
     };
 
     const handleDeleteDataspace = (id) => {
-        if (id === 'demo') return;
+        if (id === 'demo' || id === 'simulator') return;
         setDataspaces((prev) => prev.filter((d) => d.id !== id));
         if (activeDataspaceId === id) {
-            setActiveDataspaceId('demo');
+            setActiveDataspaceId('simulator');
             setActiveConnector(null);
         }
     };
 
     const handleResetDemo = async () => {
         try {
+            const keepAssets = activeDataspaceId === 'demo';
             await fetch(`${API_BASE}/reset`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ keepNodes: false })
+                body: JSON.stringify({
+                    dataspaceId: activeDataspaceId,
+                    keepNodes: false,
+                    keepAssets,
+                })
             });
             window.location.reload();
         } catch (error) {
